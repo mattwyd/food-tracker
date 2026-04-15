@@ -1,6 +1,6 @@
 ---
 name: food-tracker
-description: Log food, track cal+protein vs goals (2100cal/165g protein). Trigger on "log:", "macros", "I ate/had/just ate/just had".
+description: Log food, track cal+protein vs goals (2100cal/165g protein). Trigger on "log:", "macros", "totals", or any message describing food eaten (I ate/had/just had/having/eating/for breakfast/lunch/dinner).
 ---
 
 # Food Tracker
@@ -9,13 +9,18 @@ DB: `~/.claude/food-tracker/food.db` | Goals: 2100cal / 165g protein
 ## Triggers
 - `log:` prefix → log food
 - `macros` / `totals` → show today
-- "I had/ate/just had/just ate" → log food
+- Any of: "I ate/had/just had/just ate/having/eating/for breakfast/lunch/dinner I had/ate" → log food
 - "undo" / "delete last" → rm last entry
 
+## Get date
+Always run `date +%Y-%m-%d` for today. For relative terms:
+- "yesterday" → `date -v-1d +%Y-%m-%d`
+- "Monday" etc → `date -v-Xd +%Y-%m-%d` (calculate days back)
+- No date mentioned → today
+
 ## Log food
-1. Get real date from shell (never assume): `date +%Y-%m-%d`
-   Use that value as DATE. If user specifies a day ("yesterday", "Monday"), resolve relative to shell date output.
-2. Estimate cal+protein from description
+1. Get DATE from shell
+2. Estimate cal+protein
 3. Insert:
 ```bash
 DATE=$(date +%Y-%m-%d)
@@ -33,17 +38,20 @@ Today: Xcal/2100 · Xg/165g protein
 ```
 
 ## Show totals
-Get DATE via `date +%Y-%m-%d`, run step 4 query, same reply format (no "Logged:" line).
+Get DATE, run step 4, same reply (no "Logged:" line).
 
 ## Undo/delete last
 ```bash
-DATE=$(date +%Y-%m-%d)
-sqlite3 ~/.claude/food-tracker/food.db "DELETE FROM food_log WHERE id=(SELECT id FROM food_log WHERE date='$DATE' ORDER BY logged_at DESC LIMIT 1);"
+sqlite3 ~/.claude/food-tracker/food.db "DELETE FROM food_log WHERE id=(SELECT id FROM food_log ORDER BY logged_at DESC LIMIT 1);"
 ```
+(No date filter — removes the single most recent entry regardless of day)
 Reply: `Removed. Today: Xcal/2100 · Xg/165g protein`
 
 ## Delete by name
-Query: `SELECT id,food_description FROM food_log WHERE date='DATE' AND food_description LIKE '%KEY%';`
+```bash
+DATE=$(date +%Y-%m-%d)
+sqlite3 ~/.claude/food-tracker/food.db "SELECT id,food_description FROM food_log WHERE date='$DATE' AND food_description LIKE '%KEY%';"
+```
 Confirm match → DELETE. Re-query totals.
 
 ## Rules
